@@ -11,21 +11,21 @@ import math
 allFeatIDs = range(60)
 featVals = ['A','G','T','C','D','N','S','R']
 
-trainingDF = pd.read_csv("training.csv", header=None, index_col=0, names=['id','features','label'])
+trainingDF = pd.read_csv("smallTraining.csv", header=None, index_col=0, names=['id','features','classification'])
 
-def getInstances(df, featID, featVal, label=None):
+def getInstances(df, featID, featVal, classification=None):
     if featID == None or featVal == None:
-        return df[df.label == label]
-    elif label == None:
+        return df[df.classification == classification]
+    elif classification == None:
         return df[(df.features.str[featID] == featVal)]
     else:
-        return df[(df.features.str[featID] == featVal) & (df.label == label)]
+        return df[(df.features.str[featID] == featVal) & (df.classification == classification)]
     
 
-df1 = getInstances(df=trainingDF, featID=2, featVal='A', label='N')
+df1 = getInstances(df=trainingDF, featID=2, featVal='A', classification='N')
 
 def entropy(df):
-    counts = list(df['label'].value_counts())
+    counts = list(df['classification'].value_counts())
     if len(counts) <= 1:
         return 0
     props = [i/sum(counts) for i in counts]
@@ -43,35 +43,32 @@ def infoGain(df,featID):
         result = result - (len(S_v)/len(df)) * entropy(S_v)
     return result
 
-#featIDs = list(allFeatIDs)
-#for i in range(60):
-#    gains = {featID : infoGain(trainingDF, featID) for featID in featIDs}
-#    featIDOfBestGain = max(gains, key=gains.get)
-#    featIDs.remove(featIDOfBestGain)
-#    print(featIDOfBestGain)
-
 #TODO write the tree class
-
-
 
 class DecisionNode:
     def __init__(self, inputDF, featIDs):
         self.df = inputDF
         self.featIDs = featIDs
         self.children = dict()
-        gains = {featID : infoGain(trainingDF, featID) for featID in featIDs}
-        featIDOfBestGain = max(gains, key=gains.get)
+#        gains = {featID : infoGain(trainingDF, featID) for featID in featIDs}
+#        featIDOfBestGain = max(gains, key=gains.get)
+        self.featIDOfBestGain = featIDs[0]
         childFeatIDs = featIDs.copy()
-        childFeatIDs.remove(featIDOfBestGain)
+        childFeatIDs.remove(self.featIDOfBestGain)
         if len(childFeatIDs) > 0:
+            self.classification = None
+            # Create children
             for featVal in featVals:
-                childDF = getInstances(self.df,featIDOfBestGain,featVal)
+                childDF = getInstances(self.df,self.featIDOfBestGain,featVal)
                 if len(childDF) > 0:
                     self.children[featVal] = DecisionNode(childDF, childFeatIDs)
-        print("Node finished!")
-        print(self.featIDs)
-            
-        # Choose a featID
-        # Split by feat and make children
+        else:
+            self.classification = self.df.groupby('classification').max().iloc[0].name
+    
+    def classify(self, dna):
+        if self.classification == None:
+            return self.children[dna[self.featIDOfBestGain]].classify(dna)
+        return self.classification
 
 decisionTreeRootNode = DecisionNode(trainingDF, list(allFeatIDs))
+print(decisionTreeRootNode.classify('AAAAAAAAAATAGCTGGGCATGGTGGCAGGCGCCTGTAGTTTCAGCTGCTTGGTGTCTGA'))
