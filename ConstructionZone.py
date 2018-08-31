@@ -6,7 +6,7 @@ Created on Mon Aug 27 15:03:41 2018
 """
 
 import pandas as pd
-import math
+import math, operator, functools
 
 allFeatIDs = range(60)
 featVals = ['A','G','T','C','D','N','S','R']
@@ -69,6 +69,5 @@ decisionTreeRootNode = DecisionNode(trainingDF, list(allFeatIDs))
 def testDecisionTree(instance):
     return decisionTreeRootNode.classify(instance['features']) == instance['classification']
 
-print(decisionTreeRootNode.classify('AAAAAAAAAATAGCTGGGCATGGTGGCAGGCGCCTGTAGTTTCAGCTGCTTGGTGTCTGA'))
-
-temp = trainingDF.apply(testDecisionTree, axis=1)
+testResult = functools.reduce(operator.and_,list(trainingDF.apply(testDecisionTree, axis=1)))
+print(testResult)
