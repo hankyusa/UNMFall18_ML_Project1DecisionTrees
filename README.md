@@ -6,4 +6,4 @@ Team members:
 
 - Trevor La Pay (graduate)
 - Luke Hanks (undergraduate)
-
+- Mauricio Monsivais (undergraduate)
