@@ -19,12 +19,13 @@ class DecisionNode:
         self.classification = self.df.groupby('classification').max().iloc[0].name
         self.featIDOfBestGain = -1
         if len(list(self.df.classification.value_counts())) > 1:
+            # Entropy is not 0
             gains = {featID : infoGain(self.df, featID) for featID in self.featIDs}
             self.featIDOfBestGain = max(gains, key=gains.get)
             childFeatIDs = self.featIDs.copy()
             childFeatIDs.remove(self.featIDOfBestGain)
             if len(childFeatIDs) != 0:
-                self.classification = None
+                # There are more features left to check
                 # Create children
                 for featVal in featVals:
                     childDF = getInstances(self.df,self.featIDOfBestGain,featVal)
@@ -101,5 +102,5 @@ def doTesting(trainingDF, decTree):
 # Run the following line if you want to build the tree and test it.
 # trainingDF, decTree = doEverything()
 
-# Run the following line you wnat to test an already built tree.
+# Run the following line if you wnat to test an already built tree.
 # doTesting(trainingDF, decTree)
