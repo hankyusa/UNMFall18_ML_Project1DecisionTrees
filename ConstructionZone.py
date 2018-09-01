@@ -18,7 +18,7 @@ class DecisionNode:
         self.children = dict()
         self.classification = self.df.groupby('classification').max().iloc[0].name
         self.featIDOfBestGain = -1
-        if len(list(self.df['classification'].value_counts())) > 1:
+        if len(list(self.df.classification.value_counts())) > 1:
             gains = {featID : infoGain(self.df, featID) for featID in self.featIDs}
             self.featIDOfBestGain = max(gains, key=gains.get)
             childFeatIDs = self.featIDs.copy()
@@ -35,6 +35,9 @@ class DecisionNode:
         if dna[self.featIDOfBestGain] in self.children:
             return self.children[dna[self.featIDOfBestGain]].classify(dna)
         return self.classification
+    
+    def __str__(self):
+        return 'I am a decision tree node.'
 
 def getInstances(df, featID, featVal, classification=None):
     if featID == None or featVal == None:
@@ -45,7 +48,7 @@ def getInstances(df, featID, featVal, classification=None):
         return df[(df.features.str[featID] == featVal) & (df.classification == classification)]
 
 def entropy(df):
-    counts = list(df['classification'].value_counts())
+    counts = list(df.classification.value_counts())
     if len(counts) <= 1:
         return 0
     total = sum(counts)
@@ -62,27 +65,41 @@ def infoGain(df,featID):
         result = result - (len(S_v)/len(df)) * entropy(S_v)
     return result
 
-trainingDF = pd.read_csv("training.csv", header=None, names=['id','features','classification'])
-
-decisionTreeRootNode = DecisionNode(trainingDF, list(allFeatIDs))
-
-def testDecisionTree(instance):
-    classification = decisionTreeRootNode.classify(instance['features'])
-    if classification == instance['classification']:
+def checkCorrectness(instance):
+    if instance.dtClass == instance.classification:
         return True
     else:
-        print('incorect classification of ' + classification)
+        print('incorect classification:')
         print(instance)
         return False
 
-testResult = functools.reduce(operator.and_,list(trainingDF.apply(testDecisionTree, axis=1)))
-print(testResult)
+def makeTree():
+    trainingDF = pd.read_csv("training.csv", header=None, names=['id','features','classification'])
+    decTree = DecisionNode(trainingDF, list(allFeatIDs))
+    return trainingDF, decTree
 
-testingDF = pd.read_csv("testing.csv", header=None, names=['id','features'])
+def testTreeAgainstTrainingData(trainingDF, decTree):
+    trainingDF['dtClass'] = trainingDF.apply(lambda i:decTree.classify(i.features), axis=1)
+    trainingDF['isCorrect'] = trainingDF.apply(checkCorrectness, axis=1)
+    return functools.reduce(operator.and_,list(trainingDF.isCorrect))
 
-def classifyFunction(dna):
-    return decisionTreeRootNode.classify(dna)
+def genterateSubbmissionFile(decTree):
+    testingDF = pd.read_csv("testing.csv", header=None, names=['id','features'])
+    testingDF['classification'] = testingDF.features.apply(decTree.classify)
+    testingDF.to_csv('submission.csv', encoding='utf-8',columns=['id','classification'],header=['id','class'],index=False)
 
-testingDF['classification'] = testingDF.features.apply(classifyFunction)
+def doEverything():
+    trainingDF,decTree = makeTree()
+    testTreeAgainstTrainingData(trainingDF,decTree)
+    genterateSubbmissionFile(decTree)
+    return trainingDF,decTree
 
-testingDF.to_csv('submission.csv', encoding='utf-8',columns=['id','classification'],header=['id','class'],index=False)
+def doTesting(trainingDF, decTree):
+    testTreeAgainstTrainingData(trainingDF, decTree)
+    genterateSubbmissionFile(decTree)
+
+# Run the following line if you want to build the tree and test it.
+# trainingDF, decTree = doEverything()
+
+# Run the following line you wnat to test an already built tree.
+# doTesting(trainingDF, decTree)
