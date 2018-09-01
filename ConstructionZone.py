@@ -16,23 +16,22 @@ class DecisionNode:
         self.df = inputDF
         self.featIDs = featIDs
         self.children = dict()
-        gains = {featID : infoGain(trainingDF, featID) for featID in featIDs}
+        gains = {featID : infoGain(self.df, featID) for featID in self.featIDs}
         self.featIDOfBestGain = max(gains, key=gains.get)
-#        self.featIDOfBestGain = featIDs[0]
-        childFeatIDs = featIDs.copy()
+#        self.featIDOfBestGain = self.featIDs[0]
+        childFeatIDs = self.featIDs.copy()
         childFeatIDs.remove(self.featIDOfBestGain)
-        if len(childFeatIDs) > 0:
+        if len(childFeatIDs) != 0:
             self.classification = None
             # Create children
             for featVal in featVals:
                 childDF = getInstances(self.df,self.featIDOfBestGain,featVal)
                 if len(childDF) > 0:
                     self.children[featVal] = DecisionNode(childDF, childFeatIDs)
-        else:
-            self.classification = self.df.groupby('classification').max().iloc[0].name
+        self.classification = self.df.groupby('classification').max().iloc[0].name
     
     def classify(self, dna):
-        if self.classification == None:
+        if dna[self.featIDOfBestGain] in self.children:
             return self.children[dna[self.featIDOfBestGain]].classify(dna)
         return self.classification
 
@@ -62,7 +61,7 @@ def infoGain(df,featID):
         result = result - (len(S_v)/len(df)) * entropy(S_v)
     return result
 
-trainingDF = pd.read_csv("extraSmallTraining.csv", header=None, index_col=0, names=['id','features','classification'])
+trainingDF = pd.read_csv("extraSmallTraining.csv", header=None, names=['id','features','classification'])
 
 decisionTreeRootNode = DecisionNode(trainingDF, list(allFeatIDs))
 
@@ -71,3 +70,12 @@ def testDecisionTree(instance):
 
 testResult = functools.reduce(operator.and_,list(trainingDF.apply(testDecisionTree, axis=1)))
 print(testResult)
+
+testingDF = pd.read_csv("testing.csv", header=None, names=['id','features'])
+
+def classifyFunction(dna):
+    return decisionTreeRootNode.classify(dna)
+
+testingDF['classification'] = testingDF.features.apply(classifyFunction)
+
+testingDF.to_csv('submission.csv', encoding='utf-8',columns=['id','classification'],header=['id','class'],index=False)
