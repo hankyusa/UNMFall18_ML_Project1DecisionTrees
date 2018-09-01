@@ -16,19 +16,20 @@ class DecisionNode:
         self.df = inputDF
         self.featIDs = featIDs
         self.children = dict()
-        gains = {featID : infoGain(self.df, featID) for featID in self.featIDs}
-        self.featIDOfBestGain = max(gains, key=gains.get)
-#        self.featIDOfBestGain = self.featIDs[0]
-        childFeatIDs = self.featIDs.copy()
-        childFeatIDs.remove(self.featIDOfBestGain)
-        if len(childFeatIDs) != 0:
-            self.classification = None
-            # Create children
-            for featVal in featVals:
-                childDF = getInstances(self.df,self.featIDOfBestGain,featVal)
-                if len(childDF) > 0:
-                    self.children[featVal] = DecisionNode(childDF, childFeatIDs)
         self.classification = self.df.groupby('classification').max().iloc[0].name
+        self.featIDOfBestGain = -1
+        if len(list(self.df['classification'].value_counts())) > 1:
+            gains = {featID : infoGain(self.df, featID) for featID in self.featIDs}
+            self.featIDOfBestGain = max(gains, key=gains.get)
+            childFeatIDs = self.featIDs.copy()
+            childFeatIDs.remove(self.featIDOfBestGain)
+            if len(childFeatIDs) != 0:
+                self.classification = None
+                # Create children
+                for featVal in featVals:
+                    childDF = getInstances(self.df,self.featIDOfBestGain,featVal)
+                    if len(childDF) > 0:
+                        self.children[featVal] = DecisionNode(childDF, childFeatIDs)
     
     def classify(self, dna):
         if dna[self.featIDOfBestGain] in self.children:
@@ -61,12 +62,18 @@ def infoGain(df,featID):
         result = result - (len(S_v)/len(df)) * entropy(S_v)
     return result
 
-trainingDF = pd.read_csv("extraSmallTraining.csv", header=None, names=['id','features','classification'])
+trainingDF = pd.read_csv("training.csv", header=None, names=['id','features','classification'])
 
 decisionTreeRootNode = DecisionNode(trainingDF, list(allFeatIDs))
 
 def testDecisionTree(instance):
-    return decisionTreeRootNode.classify(instance['features']) == instance['classification']
+    classification = decisionTreeRootNode.classify(instance['features'])
+    if classification == instance['classification']:
+        return True
+    else:
+        print('incorect classification of ' + classification)
+        print(instance)
+        return False
 
 testResult = functools.reduce(operator.and_,list(trainingDF.apply(testDecisionTree, axis=1)))
 print(testResult)
