@@ -7,14 +7,22 @@ Created on Mon Aug 27 15:03:41 2018
 
 import pandas as pd
 import math, operator, functools
+import scipy.stats as stats
 
 allFeatIDs = range(60)
 featVals = ['A','G','T','C','D','N','S','R']
+allClasses = ['N', 'IE', 'EI']
 
 # Flip impurityType to E to run using Entropy Impurity,
-#  else it will use Gini Index impurity
+# else it will use Gini Index impurity
 
 impurityType = "G"
+
+# confidence level
+# Chi pruning doesn't seem to buy us anything right now.
+q = .95
+totalIncorrect = 0
+totalSubtreesStopped = 0
 
 class DecisionNode:
     def __init__(self, inputDF, featIDs):
@@ -31,11 +39,12 @@ class DecisionNode:
             childFeatIDs.remove(self.featIDOfBestGain)
             if len(childFeatIDs) != 0:
                 # There are more features left to check
-                # Create children
-                for featVal in featVals:
-                    childDF = getInstances(self.df,self.featIDOfBestGain,featVal)
-                    if len(childDF) > 0:
-                        self.children[featVal] = DecisionNode(childDF, childFeatIDs)
+                # Create children, if splitting is chi-valuable
+                if shouldSplit(self.df, self.featIDOfBestGain):
+                    for featVal in featVals:
+                        childDF = getInstances(self.df,self.featIDOfBestGain,featVal)
+                        if len(childDF) > 0:
+                            self.children[featVal] = DecisionNode(childDF, childFeatIDs)
     
     def classify(self, dna):
         if dna[self.featIDOfBestGain] in self.children:
@@ -76,12 +85,54 @@ def infoGain(df,featID):
         result = result - (len(S_v)/len(df)) * entropy(S_v)
     return result
 
+def getCritValue(q, degreesFreedom):
+    return stats.chi2.ppf(q, degreesFreedom)
+
+# helper for getting EV for chi square.
+# numParentActual = actual number of a specific class instance in parent node.
+# numClassTotal = total count of number of instances in candidate child node
+# numParentTotal = total count of all instances in a parent node
+def getExpectedValue(numParentObserved, numClassTotal, numParentTotal):
+    return numParentObserved * (numClassTotal / numParentTotal)
+
+# Calculate the chi square for a given dataframe
+def getChiSquareForSplit(df, featId):
+    chiVal = 0
+    for classType in allClasses:
+        df_c = getInstances(df, None, None, classType)
+        numParentObserved = len(df_c)
+        if (numParentObserved) > 0:
+            numParentTotal = len(df)
+            numClassTotal = len(getInstances(df_c, None, None, classType))
+            for featureVal in featVals:
+                expected = getExpectedValue(numParentObserved, numClassTotal, numParentTotal)
+                actual = len(getInstances(df_c, featId, featureVal, classType))
+                chiNumerator = math.pow(actual-expected, 2)
+                chiVal += chiNumerator/expected
+    return chiVal
+
+# Should we split a given node in DecisionTree?
+# Use chi square to stop a split if child node distribution is statistically similar
+# to parent node. If chi square > critical value, reject null hypothesis that data is
+# statistically similar.
+def shouldSplit(df, featId):
+    if getChiSquareForSplit(df, featId) > getCritValue(q, (len(featVals) - 1) * (len(allFeatIDs) - 1)):
+        return True
+    else:
+        global totalSubtreesStopped
+        totalSubtreesStopped = totalSubtreesStopped + 1
+        return False
+
+
+
 def checkCorrectness(instance):
     if instance.dtClass == instance.classification:
         return True
     else:
-        print('incorect classification:')
-        print(instance)
+        # print('incorect classification:')
+        # print(instance)
+        global totalIncorrect
+        totalIncorrect = totalIncorrect + 1
         return False
 
 def makeTree():
@@ -92,6 +143,9 @@ def makeTree():
 def testTreeAgainstTrainingData(trainingDF, decTree):
     trainingDF['dtClass'] = trainingDF.apply(lambda i:decTree.classify(i.features), axis=1)
     trainingDF['isCorrect'] = trainingDF.apply(checkCorrectness, axis=1)
+    print("Total incorrect: " + str(totalIncorrect))
+    print("Percent correct: " + str((len(trainingDF)-totalIncorrect)/len(trainingDF)))
+    print("Tree growth stopped via chi-square " + str(totalSubtreesStopped) + " times")
     return functools.reduce(operator.and_,list(trainingDF.isCorrect))
 
 def genterateSubbmissionFile(decTree):
