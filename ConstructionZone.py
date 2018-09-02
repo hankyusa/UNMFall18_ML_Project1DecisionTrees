@@ -11,6 +11,11 @@ import math, operator, functools
 allFeatIDs = range(60)
 featVals = ['A','G','T','C','D','N','S','R']
 
+# Flip impurityType to E to run using Entropy Impurity,
+#  else it will use Gini Index impurity
+
+impurityType = "G"
+
 class DecisionNode:
     def __init__(self, inputDF, featIDs):
         self.df = inputDF
@@ -55,9 +60,14 @@ def entropy(df):
     total = sum(counts)
     props = [i/total for i in counts]
     result = 0
-    for p in props:
-        result = result - p * math.log(p,2)
-    return result
+    if impurityType == "E":
+        for p in props:
+            result = result - p * math.log(p, 2)
+        return result
+    else:
+        for p in props:
+            result += math.pow(p, 2)
+        return 1 - result
 
 def infoGain(df,featID):
     result = entropy(df)
@@ -100,7 +110,7 @@ def doTesting(trainingDF, decTree):
     genterateSubbmissionFile(decTree)
 
 # Run the following line if you want to build the tree and test it.
-# trainingDF, decTree = doEverything()
+trainingDF, decTree = doEverything()
 
 # Run the following line if you wnat to test an already built tree.
 # doTesting(trainingDF, decTree)
