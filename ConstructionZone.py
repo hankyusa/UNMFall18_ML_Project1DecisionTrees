@@ -19,8 +19,7 @@ allClasses = ['N', 'IE', 'EI']
 impurityType = "G"
 
 # confidence level
-# Chi pruning doesn't seem to buy us anything right now.
-q = .95
+q = .90
 totalIncorrect = 0
 totalSubtreesStopped = 0
 
@@ -40,7 +39,7 @@ class DecisionNode:
             if len(childFeatIDs) != 0:
                 # There are more features left to check
                 # Create children, if splitting is chi-valuable
-                #if shouldSplit(self.df, self.featIDOfBestGain):
+                if shouldSplit(self.df, self.featIDOfBestGain):
                     for featVal in featVals:
                         childDF = getInstances(self.df,self.featIDOfBestGain,featVal)
                         if len(childDF) > 0:
@@ -116,7 +115,7 @@ def getChiSquareForSplit(df, featId):
 # to parent node. If chi square > critical value, reject null hypothesis that data is
 # statistically similar.
 def shouldSplit(df, featId):
-    if getChiSquareForSplit(df, featId) > getCritValue(q, (len(featVals) - 1) * (len(allFeatIDs) - 1)):
+    if getChiSquareForSplit(df, featId) > getCritValue(q, (len(featVals) - 1) * (len(allClasses) - 1)):
         return True
     else:
         global totalSubtreesStopped
