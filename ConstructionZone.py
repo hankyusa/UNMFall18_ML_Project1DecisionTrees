@@ -2,7 +2,7 @@
 """
 Created on Mon Aug 27 15:03:41 2018
 
-@author: Luke Hanks
+@author: Luke Hanks and Trevor La Pay
 """
 
 import pandas as pd
@@ -40,7 +40,7 @@ class DecisionNode:
             if len(childFeatIDs) != 0:
                 # There are more features left to check
                 # Create children, if splitting is chi-valuable
-                if shouldSplit(self.df, self.featIDOfBestGain):
+                #if shouldSplit(self.df, self.featIDOfBestGain):
                     for featVal in featVals:
                         childDF = getInstances(self.df,self.featIDOfBestGain,featVal)
                         if len(childDF) > 0:
