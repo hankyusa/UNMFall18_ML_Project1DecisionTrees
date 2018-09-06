@@ -31,7 +31,7 @@ class DecisionNode:
         self.classification = self.df.groupby('classification').max().iloc[0].name
         self.featIDOfBestGain = -1
         if len(list(self.df.classification.value_counts())) > 1:
-            # Entropy is not 0
+            # Impurity is not 0
             gains = {featID : infoGain(self.df, featID) for featID in self.featIDs}
             self.featIDOfBestGain = max(gains, key=gains.get)
             childFeatIDs = self.featIDs.copy()
@@ -61,7 +61,7 @@ def getInstances(df, featID, featVal, classification=None):
     else:
         return df[(df.features.str[featID] == featVal) & (df.classification == classification)]
 
-def entropy(df):
+def impurity(df):
     counts = list(df.classification.value_counts())
     if len(counts) <= 1:
         return 0
@@ -71,17 +71,17 @@ def entropy(df):
     if impurityType == "E":
         for p in props:
             result = result - p * math.log(p, 2)
-        return result
     else:
         for p in props:
             result += math.pow(p, 2)
-        return 1 - result
+        result = 1 - result
+    return result
 
 def infoGain(df,featID):
-    result = entropy(df)
+    result = impurity(df)
     for featVal in featVals:
         S_v = getInstances(df,featID,featVal)
-        result = result - (len(S_v)/len(df)) * entropy(S_v)
+        result = result - (len(S_v)/len(df)) * impurity(S_v)
     return result
 
 def getCritValue(q, degreesFreedom):
