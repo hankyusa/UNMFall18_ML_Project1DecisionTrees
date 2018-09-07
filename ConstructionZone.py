@@ -25,40 +25,44 @@ totalIncorrect = 0
 totalSubtreesStopped = 0
 
 class DecisionNode:
-    def __init__(self, inputDF, featIDs):
+    def __init__(self, inputDF, featIDs, isRoot=False):
+        self.isRoot = isRoot
         self.df = inputDF
         self.featIDs = featIDs
         self.children = dict()
+        # self.bestClass is the most likely class given classification stops on this node.
         self.bestClass = self.df.groupby('classification').max().iloc[0].name
         self.bestFeat = -1
-        if len(list(self.df.classification.value_counts())) > 1:
-            # Impurity is not 0
+        if len(list(self.df.classification.value_counts())) > 1 and len(self.featIDs) > 0:
+            # The number of unique classes in this set is greater than 1, 
+            # therefore impurity is not 0. Also, there are still features to split by.
+            # Find the best feature to split by.
             gains = {featID : infoGain(self.df, featID) for featID in self.featIDs}
             self.bestFeat = max(gains, key=gains.get)
-            childFeatIDs = self.featIDs.copy()
-            childFeatIDs.remove(self.bestFeat)
-            if len(childFeatIDs) != 0:
-                # There are more features left to check
-                # Create children, if splitting is chi-valuable
-                if shouldSplit(self.df, self.bestFeat):
-                    for featVal in featVals:
-                        childDF = getInstances(self.df,self.bestFeat,featVal)
-                        if len(childDF) > 0:
-                            self.children[featVal] = DecisionNode(childDF, childFeatIDs)
+            if shouldSplit(self.df, self.bestFeat):
+                # Splitting is chi-valuable. Create children.
+                childFeatIDs = self.featIDs.copy()
+                childFeatIDs.remove(self.bestFeat)
+                for featVal in featVals:
+                    childDF = getInstances(self.df,self.bestFeat,featVal)
+                    if len(childDF) > 0:
+                        self.children[featVal] = DecisionNode(childDF, childFeatIDs)
+        # self.df = None
     
     def classify(self, dna):
-        if dna[self.bestFeat] in self.children:
+        if self.bestFeat!=-1 and dna[self.bestFeat] in self.children:
             return self.children[dna[self.bestFeat]].classify(dna)
         return self.bestClass
     
     def __str__(self):
-        # run print('graph TB\n'+str(decTree)) to get a Mermaid Diagram code
-        dia = '{}(({}{}))\n'.format(id(self),self.bestClass,' '+str(self.bestFeat) if self.bestFeat!=-1 else '')
+        # run print(decTree) to get Mermaid Diagram code.
+        s='graph LR\n' if self.isRoot else ''
+        s=s+'{}(({}{}))\n'.format(id(self),self.bestClass,' '+str(self.bestFeat) if self.bestFeat!=-1 else '')
         for featVal, child in self.children.items():
-            dia = dia+'{}-- {} -->{}\n'.format(id(self),featVal,id(child))
+            s = s+'{}-- {} -->{}\n'.format(id(self),featVal,id(child))
         for featVal, child in self.children.items():
-            dia = dia + str(child)
-        return dia
+            s = s + str(child)
+        return s
 
 def getInstances(df, featID, featVal, classification=None):
     if featID == None or featVal == None:
@@ -138,7 +142,7 @@ def checkCorrectness(instance):
 
 def makeTree():
     trainingDF = pd.read_csv("training.csv", header=None, names=['id','features','classification'])
-    decTree = DecisionNode(trainingDF, list(allFeatIDs))
+    decTree = DecisionNode(trainingDF, list(allFeatIDs), True)
     return trainingDF, decTree
 
 def testTreeAgainstTrainingData(trainingDF, decTree):
