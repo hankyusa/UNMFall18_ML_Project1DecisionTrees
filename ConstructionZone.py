@@ -12,6 +12,7 @@ import scipy.stats as stats
 allFeatIDs = range(60)
 featVals = ['A','G','T','C','D','N','S','R']
 allClasses = ['N', 'IE', 'EI']
+degreesFreedom = (len(featVals) - 1) * (len(allClasses) - 1)
 
 # Flip impurityType to E to run using Entropy Impurity,
 # else it will use Gini Index impurity
@@ -29,29 +30,36 @@ class DecisionNode:
         self.featIDs = featIDs
         self.children = dict()
         self.classification = self.df.groupby('classification').max().iloc[0].name
-        self.featIDOfBestGain = -1
+        self.bestFeat = -1
         if len(list(self.df.classification.value_counts())) > 1:
             # Impurity is not 0
             gains = {featID : infoGain(self.df, featID) for featID in self.featIDs}
-            self.featIDOfBestGain = max(gains, key=gains.get)
+            self.bestFeat = max(gains, key=gains.get)
             childFeatIDs = self.featIDs.copy()
-            childFeatIDs.remove(self.featIDOfBestGain)
+            childFeatIDs.remove(self.bestFeat)
             if len(childFeatIDs) != 0:
                 # There are more features left to check
                 # Create children, if splitting is chi-valuable
-                if shouldSplit(self.df, self.featIDOfBestGain):
+                if shouldSplit(self.df, self.bestFeat):
                     for featVal in featVals:
-                        childDF = getInstances(self.df,self.featIDOfBestGain,featVal)
+                        childDF = getInstances(self.df,self.bestFeat,featVal)
                         if len(childDF) > 0:
                             self.children[featVal] = DecisionNode(childDF, childFeatIDs)
     
     def classify(self, dna):
-        if dna[self.featIDOfBestGain] in self.children:
-            return self.children[dna[self.featIDOfBestGain]].classify(dna)
+        if dna[self.bestFeat] in self.children:
+            return self.children[dna[self.bestFeat]].classify(dna)
         return self.classification
     
     def __str__(self):
-        return 'I am a decision tree node.'
+        # run print('graph TB\n'+str(decTree)) to get a Mermaid Diagram code
+        if self.bestFeat == -1:
+            dia = '{}(({}))\n'.format(id(self),self.classification)
+        else:
+            dia = '{}(({} {}))\n'.format(id(self),self.classification,self.bestFeat)
+        for child in self.children:
+            dia = dia+'{}-- {} -->{}\n{}'.format(id(self),child,id(self.children[child]),str(self.children[child]))
+        return dia
 
 def getInstances(df, featID, featVal, classification=None):
     if featID == None or featVal == None:
@@ -84,9 +92,6 @@ def infoGain(df,featID):
         result = result - (len(S_v)/len(df)) * impurity(S_v)
     return result
 
-def getCritValue(q, degreesFreedom):
-    return stats.chi2.ppf(q, degreesFreedom)
-
 # helper for getting EV for chi square.
 # numParentActual = actual number of a specific class instance in parent node.
 # numClassTotal = total count of number of instances in candidate child node
@@ -115,14 +120,12 @@ def getChiSquareForSplit(df, featId):
 # to parent node. If chi square > critical value, reject null hypothesis that data is
 # statistically similar.
 def shouldSplit(df, featId):
-    if getChiSquareForSplit(df, featId) > getCritValue(q, (len(featVals) - 1) * (len(allClasses) - 1)):
+    if getChiSquareForSplit(df, featId) > stats.chi2.ppf(q, degreesFreedom):
         return True
     else:
         global totalSubtreesStopped
         totalSubtreesStopped = totalSubtreesStopped + 1
         return False
-
-
 
 def checkCorrectness(instance):
     if instance.dtClass == instance.classification:
