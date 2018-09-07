@@ -29,7 +29,7 @@ class DecisionNode:
         self.df = inputDF
         self.featIDs = featIDs
         self.children = dict()
-        self.classification = self.df.groupby('classification').max().iloc[0].name
+        self.bestClass = self.df.groupby('classification').max().iloc[0].name
         self.bestFeat = -1
         if len(list(self.df.classification.value_counts())) > 1:
             # Impurity is not 0
@@ -49,16 +49,15 @@ class DecisionNode:
     def classify(self, dna):
         if dna[self.bestFeat] in self.children:
             return self.children[dna[self.bestFeat]].classify(dna)
-        return self.classification
+        return self.bestClass
     
     def __str__(self):
         # run print('graph TB\n'+str(decTree)) to get a Mermaid Diagram code
-        if self.bestFeat == -1:
-            dia = '{}(({}))\n'.format(id(self),self.classification)
-        else:
-            dia = '{}(({} {}))\n'.format(id(self),self.classification,self.bestFeat)
-        for child in self.children:
-            dia = dia+'{}-- {} -->{}\n{}'.format(id(self),child,id(self.children[child]),str(self.children[child]))
+        dia = '{}(({}{}))\n'.format(id(self),self.bestClass,' '+str(self.bestFeat) if self.bestFeat!=-1 else '')
+        for featVal, child in self.children.items():
+            dia = dia+'{}-- {} -->{}\n'.format(id(self),featVal,id(child))
+        for featVal, child in self.children.items():
+            dia = dia + str(child)
         return dia
 
 def getInstances(df, featID, featVal, classification=None):
