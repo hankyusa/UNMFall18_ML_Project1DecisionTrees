@@ -5,6 +5,7 @@ Created on Mon Aug 27 15:03:41 2018
 @author: Luke Hanks and Trevor La Pay
 """
 
+import argparse
 import pandas as pd
 import math, operator, functools
 import scipy.stats as stats
@@ -12,15 +13,15 @@ import scipy.stats as stats
 allFeatIDs = range(60)
 featVals = ['A','G','T','C','D','N','S','R']
 allClasses = ['N', 'IE', 'EI']
-degreesFreedom = (len(featVals) - 1) * (len(allClasses) - 1)
 
 # Flip impurityType to E to run using Entropy Impurity,
 # else it will use Gini Index impurity
-
 impurityType = "G"
 
-# confidence level
-q = .90
+degreesFreedom = (len(featVals) - 1) * (len(allClasses) - 1)
+confidenceLevel = .90
+chiSqrThreshold = stats.chi2.ppf(confidenceLevel, degreesFreedom)
+
 totalIncorrect = 0
 totalSubtreesStopped = 0
 
@@ -124,7 +125,7 @@ def getChiSquareForSplit(df, featId):
 # to parent node. If chi square > critical value, reject null hypothesis that data is
 # statistically similar.
 def shouldSplit(df, featId):
-    if getChiSquareForSplit(df, featId) > stats.chi2.ppf(q, degreesFreedom):
+    if getChiSquareForSplit(df, featId) > chiSqrThreshold:
         return True
     else:
         global totalSubtreesStopped
@@ -141,8 +142,8 @@ def checkCorrectness(instance):
         totalIncorrect = totalIncorrect + 1
         return False
 
-def makeTree():
-    trainingDF = pd.read_csv("training.csv", header=None, names=['id','features','classification'])
+def makeTree(trainingDataFile="training.csv"):
+    trainingDF = pd.read_csv(trainingDataFile, header=None, names=['id','features','classification'])
     decTree = DecisionNode(trainingDF, list(allFeatIDs), True)
     return trainingDF, decTree
 
@@ -154,23 +155,26 @@ def testTreeAgainstTrainingData(trainingDF, decTree):
     print("Tree growth stopped via chi-square " + str(totalSubtreesStopped) + " times")
     return functools.reduce(operator.and_,list(trainingDF.isCorrect))
 
-def genterateSubbmissionFile(decTree):
-    testingDF = pd.read_csv("testing.csv", header=None, names=['id','features'])
+def genterateSubbmissionFile(decTree, testingDataFile="testing.csv", answersDataFile="answers.csv"):
+    testingDF = pd.read_csv(testingDataFile, header=None, names=['id','features'])
     testingDF['classification'] = testingDF.features.apply(decTree.classify)
-    testingDF.to_csv('submission.csv', encoding='utf-8',columns=['id','classification'],header=['id','class'],index=False)
+    testingDF.to_csv(answersDataFile,encoding='utf-8',columns=['id','classification'],header=['id','class'],index=False)
 
-def doEverything():
-    trainingDF,decTree = makeTree()
-    testTreeAgainstTrainingData(trainingDF,decTree)
-    genterateSubbmissionFile(decTree)
-    return trainingDF,decTree
-
-def doTesting(trainingDF, decTree):
+def main():
+    parser = argparse.ArgumentParser(description='Build a decision tree and test it.')
+    parser.add_argument('--training', default="training.csv", type=str,
+                        help='The name of the file containing the training data.')
+    parser.add_argument('--testing', default="testing.csv", type=str,
+                        help='The name of the file containing the testing data.')
+    parser.add_argument('--answers', default="answers.csv", type=str,
+                        help='The name of the file where the test answers will be put.')
+    parser.add_argument('--chiSquarConfidence', default=0.90, type=float,
+                        help='Some number between 0 and 1. The level of confidence for the chi squar test.')
+    parser.add_argument('--impurity', default="G", type=str,
+                        help="How to calculate impurity. 'G' for Gini Index. 'E' for Entropy.")
+    args = parser.parse_args()
+    trainingDF,decTree = makeTree(args.training)
     testTreeAgainstTrainingData(trainingDF, decTree)
-    genterateSubbmissionFile(decTree)
+    genterateSubbmissionFile(decTree, args.testing, args.answers)
 
-# Run the following line if you want to build the tree and test it.
-trainingDF, decTree = doEverything()
-
-# Run the following line if you wnat to test an already built tree.
-# doTesting(trainingDF, decTree)
+if __name__ == "__main__": main()
