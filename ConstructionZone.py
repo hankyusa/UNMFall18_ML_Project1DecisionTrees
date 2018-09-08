@@ -64,8 +64,10 @@ class DecisionNode:
             s = s + str(child)
         return s
 
-def getInstances(df, featID, featVal, classification=None):
-    if featID == None or featVal == None:
+def getInstances(df, featID=None, featVal=None, classification=None):
+    if (featID == None or featVal == None) and classification == None:
+        return df
+    elif featID == None or featVal == None:
         return df[df.classification == classification]
     elif classification == None:
         return df[(df.features.str[featID] == featVal)]
@@ -95,24 +97,23 @@ def infoGain(df,featID):
         result = result - (len(S_v)/len(df)) * impurity(S_v)
     return result
 
-# helper for getting EV for chi square.
-# numParentActual = actual number of a specific class instance in parent node.
-# numClassTotal = total count of number of instances in candidate child node
-# numParentTotal = total count of all instances in a parent node
-def getExpectedValue(numParentObserved, numClassTotal, numParentTotal):
-    return numParentObserved * (numClassTotal / numParentTotal)
-
 # Calculate the chi square for a given dataframe
 def getChiSquareForSplit(df, featId):
     chiVal = 0
+    # Get count of ALL of parent's instances (regardless of class).
+    numParentTotal = len(df)
     for classType in allClasses:
+        # Get the set of parent's instances matching classType.
         df_c = getInstances(df, None, None, classType)
+        # Get count of parent's instances matching classType.
         numParentObserved = len(df_c)
         if (numParentObserved) > 0:
-            numParentTotal = len(df)
+            # numClassTotal = total count of number of instances in candidate child node
             numClassTotal = len(getInstances(df_c, None, None, classType))
+            if numParentObserved != numClassTotal: print("numParentObserved != numClassTotal")
+            # Get the expected value for chi square.
+            expected = numParentObserved * numClassTotal / numParentTotal
             for featureVal in featVals:
-                expected = getExpectedValue(numParentObserved, numClassTotal, numParentTotal)
                 actual = len(getInstances(df_c, featId, featureVal, classType))
                 chiNumerator = math.pow(actual-expected, 2)
                 chiVal += chiNumerator/expected
