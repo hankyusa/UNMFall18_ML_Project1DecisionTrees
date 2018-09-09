@@ -1,16 +1,31 @@
 # Machine Learning - Project 1: Decision Trees
 
-## Use
+## Usage
 
-Make sure ConstructionZone.py, training.csv and testing.csv are all in the working directory. Run ConstructionZone.py. If you want to build the tree and test it, run `trainingDF, decTree = doEverything()`. If you wnat to test an already built tree, run `doTesting(trainingDF, decTree)`.
+Make sure ConstructionZone.py, training.csv and testing.csv are all in the working directory.
 
-To switch between Entropy and Gini Index impurity, toggle the 
-impurityType global (E for entropy, anything else for Gini)
+```
+usage: ConstructionZone.py [-h] [--training TRAINING] [--testing TESTING]
+                           [--answers ANSWERS]
+                           [--chiSquareConfidence CHISQUARECONFIDENCE]
+                           [--impurity IMPURITY]
 
-To prevent subtrees from growing in a node if they fail the chi
-square threshold test, make sure shouldSplit method call is not
-disabled. (since it is not helping accuracy, it needs to be
-disabled at the moment)
+Build a decision tree and test it.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --training TRAINING   The name of the file containing the training data.
+  --testing TESTING     The name of the file containing the testing data.
+  --answers ANSWERS     The name of the file where the test answers will be
+                        put.
+  --chiSquareConfidence CHISQUARECONFIDENCE
+                        Some number between 0 and 1. The level of confidence
+                        for the chi-square test.
+  --impurity IMPURITY   How to calculate impurity. 'G' for Gini Index. 'E' for
+                        Entropy.
+```
+
+Note: Unambiguous abreviations work.
 
 ## Team
 
