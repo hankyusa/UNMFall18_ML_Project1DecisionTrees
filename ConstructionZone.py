@@ -19,7 +19,7 @@ allClasses = ['N', 'IE', 'EI']
 impurityType = "G"
 
 degreesFreedom = (len(featVals) - 1) * (len(allClasses) - 1)
-confidenceLevel = .90
+confidenceLevel = .1
 chiSqrThreshold = stats.chi2.ppf(confidenceLevel, degreesFreedom)
 
 totalIncorrect = 0
@@ -98,26 +98,37 @@ def infoGain(df,featID):
         result = result - (len(S_v)/len(df)) * impurity(S_v)
     return result
 
-# Calculate the chi square for a given dataframe
+# Calculate the chi square for a given dataframe.
+# Compare the actual number of instances of a class in a
+# candidate child node to the expected number given the
+# ratio of the classes in the "parent" node.
 def getChiSquareForSplit(df, featId):
     chiVal = 0
     # Get count of ALL of parent's instances (regardless of class).
     numParentTotal = len(df)
     for classType in allClasses:
         # Get the set of parent's instances matching classType.
-        df_c = getInstances(df, None, None, classType)
+        df_class = getInstances(df, None, None, classType)
         # Get count of parent's instances matching classType.
-        numParentObserved = len(df_c)
-        if (numParentObserved) > 0:
-            # numClassTotal = total count of number of instances in candidate child node
-            numClassTotal = len(getInstances(df_c, None, None, classType))
-            if numParentObserved != numClassTotal: print("numParentObserved != numClassTotal")
-            # Get the expected value for chi square.
-            expected = numParentObserved * numClassTotal / numParentTotal
+        numParentObserved = len(df_class)
+        if numParentObserved > 0:
             for featureVal in featVals:
-                actual = len(getInstances(df_c, featId, featureVal, classType))
+                # numClassTotal = total count of number of instances in candidate node
+                numClassTotal = len(getInstances(df, featId, featureVal, None))
+                # Get the expected value for chi square.
+                # This is the number of TOTAL elements in a candidate node * the ratio of
+                # the number of observed parent elements for a given class to the total number
+                # in the parent.
+                expected = numClassTotal * numParentObserved / numParentTotal
+                actual = len(getInstances(df, featId, featureVal, classType))
                 chiNumerator = math.pow(actual-expected, 2)
-                chiVal += chiNumerator/expected
+                # if expected is zero, this means either the parent has no observed values for that class
+                # or the candidate node for that class is empty. In either case, it should not contribute to chi square.
+                if (expected > 0):
+                    chiVal += chiNumerator/expected
+                    # exit early if we've reached the threshold.
+                    if (chiVal > chiSqrThreshold):
+                        return chiVal
     return chiVal
 
 # Should we split a given node in DecisionTree?
