@@ -108,20 +108,22 @@ def getChiSquareForSplit(df, featId, chiSqrThreshold):
     for classType in allClasses:
         # Get count of parent's instances matching classType.
         numParentObserved = len(getInstances(df, None, None, classType))
+        # If the parent has no observed values for classType, 
+        # then classType sould not contribute to chiVal.
         if numParentObserved > 0:
             for featureVal in featVals:
                 # numClassTotal = total count of number of instances in candidate node
                 numClassTotal = len(getInstances(df, featId, featureVal, None))
-                # Get the expected value for chi square.
-                # This is the number of TOTAL elements in a candidate node * the ratio of
-                # the number of observed parent elements for a given class to the total number
-                # in the parent.
-                expected = numClassTotal * numParentObserved / numParentTotal
-                actual = len(getInstances(df, featId, featureVal, classType))
-                chiNumerator = math.pow(actual-expected, 2)
-                # if expected is zero, this means either the parent has no observed values for that class
-                # or the candidate node for that class is empty. In either case, it should not contribute to chi square.
-                if (expected > 0):
+                # If the candidate node has no values,
+                # then this candidate sould not contribute to chiVal.
+                if numClassTotal > 0:
+                    # Get the expected value for chi square.
+                    # This is the number of TOTAL elements in a candidate node * the ratio of
+                    # the number of observed parent elements for a given class to the total number
+                    # in the parent.
+                    expected = numClassTotal * numParentObserved / numParentTotal
+                    actual = len(getInstances(df, featId, featureVal, classType))
+                    chiNumerator = math.pow(actual-expected, 2)
                     chiVal += chiNumerator/expected
                     # exit early if we've reached the threshold.
                     if (chiVal > chiSqrThreshold):
