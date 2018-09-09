@@ -43,18 +43,18 @@ class DecisionNode:
         # self.df = None
     
     def classify(self, dna):
-        if self.bestFeat!=-1 and dna[self.bestFeat] in self.children:
+        if self.bestFeat != -1 and dna[self.bestFeat] in self.children:
             return self.children[dna[self.bestFeat]].classify(dna)
         return self.bestClass
     
     def __str__(self):
         # run print(decTree) to get Mermaid Diagram code.
-        s='graph LR\n' if self.isRoot else ''
-        s=s+'{}(({}{}))\n'.format(id(self),self.bestClass,' '+str(self.bestFeat) if self.bestFeat!=-1 else '')
+        s = 'graph LR\n' if self.isRoot else ''
+        s+='{}(({}{}))\n'.format(id(self),self.bestClass,' '+str(self.bestFeat) if self.bestFeat!=-1 else '')
         for featVal, child in self.children.items():
-            s = s+'{}-- {} -->{}\n'.format(id(self),featVal,id(child))
+            s += '{}-- {} -->{}\n'.format(id(self),featVal,id(child))
         for featVal, child in self.children.items():
-            s = s + str(child)
+            s += str(child)
         return s
 
 def getInstances(df, featID=None, featVal=None, classification=None):
@@ -90,7 +90,7 @@ def giniIndex(df):
     result = 1 - result
     return result
 
-def infoGain(df,featID,impurityFunc):
+def infoGain(df, featID, impurityFunc):
     result = impurityFunc(df)
     for featVal in featVals:
         S_v = getInstances(df,featID,featVal)
@@ -182,13 +182,11 @@ def main():
     parser.add_argument('--impurity', default="G", type=str,
                         help="How to calculate impurity. 'G' for Gini Index. 'E' for Entropy.")
     args = parser.parse_args()
+    
     impurityFunc = entropy if args.impurity == 'E' else giniIndex
-    if args.chiSquareConfidence<1 and args.chiSquareConfidence>0:
-        confidenceLevel = args.chiSquareConfidence
-    else:
-        confidenceLevel = (args.chiSquareConfidence % 100) / 100
     degreesFreedom = (len(featVals) - 1) * (len(allClasses) - 1)
-    chiSqrThreshold = stats.chi2.ppf(confidenceLevel, degreesFreedom)
+    chiSqrThreshold = stats.chi2.ppf(args.chiSquareConfidence, degreesFreedom)
+    
     trainingDF,decTree = makeTree(args.training, impurityFunc, chiSqrThreshold)
     testTreeAgainstTrainingData(trainingDF, decTree)
     genterateSubbmissionFile(decTree, args.testing, args.answers)
