@@ -14,19 +14,11 @@ allFeatIDs = range(60)
 featVals = ['A','G','T','C','D','N','S','R']
 allClasses = ['N', 'IE', 'EI']
 
-# Flip impurityType to E to run using Entropy Impurity,
-# else it will use Gini Index impurity
-impurityType = "G"
-
-degreesFreedom = (len(featVals) - 1) * (len(allClasses) - 1)
-confidenceLevel = .1
-chiSqrThreshold = stats.chi2.ppf(confidenceLevel, degreesFreedom)
-
 totalIncorrect = 0
 totalSubtreesStopped = 0
 
 class DecisionNode:
-    def __init__(self, inputDF, featIDs, isRoot=False):
+    def __init__(self, inputDF, featIDs, impurityFunc, chiSqrThreshold=0, isRoot=False):
         self.isRoot = isRoot
         self.df = inputDF
         self.featIDs = featIDs
@@ -38,16 +30,16 @@ class DecisionNode:
             # The number of unique classes in this set is greater than 1, 
             # therefore impurity is not 0. Also, there are still features to split by.
             # Find the best feature to split by.
-            gains = {featID : infoGain(self.df, featID) for featID in self.featIDs}
+            gains = {featID : infoGain(self.df, featID, impurityFunc) for featID in self.featIDs}
             self.bestFeat = max(gains, key=gains.get)
-            if shouldSplit(self.df, self.bestFeat):
+            if shouldSplit(self.df, self.bestFeat, chiSqrThreshold):
                 # Splitting is chi-valuable. Create children.
                 childFeatIDs = self.featIDs.copy()
                 childFeatIDs.remove(self.bestFeat)
                 for featVal in featVals:
                     childDF = getInstances(self.df,self.bestFeat,featVal)
                     if len(childDF) > 0:
-                        self.children[featVal] = DecisionNode(childDF, childFeatIDs)
+                        self.children[featVal] = DecisionNode(childDF, childFeatIDs, impurityFunc, chiSqrThreshold)
         # self.df = None
     
     def classify(self, dna):
@@ -75,42 +67,47 @@ def getInstances(df, featID=None, featVal=None, classification=None):
     else:
         return df[(df.features.str[featID] == featVal) & (df.classification == classification)]
 
-def impurity(df):
-    counts = list(df.classification.value_counts())
-    if len(counts) <= 1:
+def entropy(df):
+    classCounts = list(df.classification.value_counts())
+    if len(classCounts) <= 1:
         return 0
-    total = sum(counts)
-    props = [i/total for i in counts]
+    total = sum(classCounts)
+    proportions = [i/total for i in classCounts]
     result = 0
-    if impurityType == "E":
-        for p in props:
-            result = result - p * math.log(p, 2)
-    else:
-        for p in props:
-            result += math.pow(p, 2)
-        result = 1 - result
+    for p in proportions:
+        result = result - p * math.log(p, 2)
     return result
 
-def infoGain(df,featID):
-    result = impurity(df)
+def giniIndex(df):
+    classCounts = list(df.classification.value_counts())
+    if len(classCounts) <= 1:
+        return 0
+    total = sum(classCounts)
+    proportions = [i/total for i in classCounts]
+    result = 0
+    for p in proportions:
+        result += math.pow(p, 2)
+    result = 1 - result
+    return result
+
+def infoGain(df,featID,impurityFunc):
+    result = impurityFunc(df)
     for featVal in featVals:
         S_v = getInstances(df,featID,featVal)
-        result = result - (len(S_v)/len(df)) * impurity(S_v)
+        result = result - (len(S_v)/len(df)) * impurityFunc(S_v)
     return result
 
 # Calculate the chi square for a given dataframe.
 # Compare the actual number of instances of a class in a
 # candidate child node to the expected number given the
 # ratio of the classes in the "parent" node.
-def getChiSquareForSplit(df, featId):
+def getChiSquareForSplit(df, featId, chiSqrThreshold):
     chiVal = 0
     # Get count of ALL of parent's instances (regardless of class).
     numParentTotal = len(df)
     for classType in allClasses:
-        # Get the set of parent's instances matching classType.
-        df_class = getInstances(df, None, None, classType)
         # Get count of parent's instances matching classType.
-        numParentObserved = len(df_class)
+        numParentObserved = len(getInstances(df, None, None, classType))
         if numParentObserved > 0:
             for featureVal in featVals:
                 # numClassTotal = total count of number of instances in candidate node
@@ -135,8 +132,8 @@ def getChiSquareForSplit(df, featId):
 # Use chi square to stop a split if child node distribution is statistically similar
 # to parent node. If chi square > critical value, reject null hypothesis that data is
 # statistically similar.
-def shouldSplit(df, featId):
-    if getChiSquareForSplit(df, featId) > chiSqrThreshold:
+def shouldSplit(df, featId, chiSqrThreshold=0):
+    if getChiSquareForSplit(df, featId, chiSqrThreshold) > chiSqrThreshold:
         return True
     else:
         global totalSubtreesStopped
@@ -153,9 +150,9 @@ def checkCorrectness(instance):
         totalIncorrect = totalIncorrect + 1
         return False
 
-def makeTree(trainingDataFile="training.csv"):
+def makeTree(trainingDataFile="training.csv", impurityFunc=giniIndex, chiSqrThreshold=0):
     trainingDF = pd.read_csv(trainingDataFile, header=None, names=['id','features','classification'])
-    decTree = DecisionNode(trainingDF, list(allFeatIDs), True)
+    decTree = DecisionNode(trainingDF, list(allFeatIDs), impurityFunc, chiSqrThreshold, True)
     return trainingDF, decTree
 
 def testTreeAgainstTrainingData(trainingDF, decTree):
@@ -172,6 +169,7 @@ def genterateSubbmissionFile(decTree, testingDataFile="testing.csv", answersData
     testingDF.to_csv(answersDataFile,encoding='utf-8',columns=['id','classification'],header=['id','class'],index=False)
 
 def main():
+    global impurityType
     parser = argparse.ArgumentParser(description='Build a decision tree and test it.')
     parser.add_argument('--training', default="training.csv", type=str,
                         help='The name of the file containing the training data.')
@@ -179,12 +177,19 @@ def main():
                         help='The name of the file containing the testing data.')
     parser.add_argument('--answers', default="answers.csv", type=str,
                         help='The name of the file where the test answers will be put.')
-    parser.add_argument('--chiSquarConfidence', default=0.90, type=float,
-                        help='Some number between 0 and 1. The level of confidence for the chi squar test.')
+    parser.add_argument('--chiSquareConfidence', default=0.90, type=float,
+                        help='Some number between 0 and 1. The level of confidence for the chi-square test.')
     parser.add_argument('--impurity', default="G", type=str,
                         help="How to calculate impurity. 'G' for Gini Index. 'E' for Entropy.")
     args = parser.parse_args()
-    trainingDF,decTree = makeTree(args.training)
+    impurityFunc = entropy if args.impurity == 'E' else giniIndex
+    if args.chiSquareConfidence<1 and args.chiSquareConfidence>0:
+        confidenceLevel = args.chiSquareConfidence
+    else:
+        confidenceLevel = (args.chiSquareConfidence % 100) / 100
+    degreesFreedom = (len(featVals) - 1) * (len(allClasses) - 1)
+    chiSqrThreshold = stats.chi2.ppf(confidenceLevel, degreesFreedom)
+    trainingDF,decTree = makeTree(args.training, impurityFunc, chiSqrThreshold)
     testTreeAgainstTrainingData(trainingDF, decTree)
     genterateSubbmissionFile(decTree, args.testing, args.answers)
 
