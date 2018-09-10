@@ -18,7 +18,7 @@ totalIncorrect = 0
 totalSubtreesStopped = 0
 
 class DecisionNode:
-    def __init__(self, inputDF, featIDs, impurityFunc, chiSqrThreshold=0, isRoot=False):
+    def __init__(self, inputDF, featIDs, impurityFunc, p=0, isRoot=False):
         self.isRoot = isRoot
         self.df = inputDF
         self.featIDs = featIDs
@@ -32,15 +32,15 @@ class DecisionNode:
             # Find the best feature to split by.
             gains = {featID : infoGain(self.df, featID, impurityFunc) for featID in self.featIDs}
             self.bestFeat = max(gains, key=gains.get)
-            if shouldSplit(self.df, self.bestFeat, chiSqrThreshold):
+            if shouldSplit(self.df, self.bestFeat, p):
                 # Splitting is chi-valuable. Create children.
                 childFeatIDs = self.featIDs.copy()
                 childFeatIDs.remove(self.bestFeat)
                 for featVal in featVals:
                     childDF = getInstances(self.df,self.bestFeat,featVal)
                     if len(childDF) > 0:
-                        self.children[featVal] = DecisionNode(childDF, childFeatIDs, impurityFunc, chiSqrThreshold)
-        # self.df = None
+                        self.children[featVal] = DecisionNode(childDF, childFeatIDs, impurityFunc, p)
+        self.df = None
     
     def classify(self, dna):
         if self.bestFeat != -1 and dna[self.bestFeat] in self.children:
@@ -134,7 +134,13 @@ def getChiSquareForSplit(df, featId, chiSqrThreshold):
 # Use chi square to stop a split if child node distribution is statistically similar
 # to parent node. If chi square > critical value, reject null hypothesis that data is
 # statistically similar.
-def shouldSplit(df, featId, chiSqrThreshold=0):
+def shouldSplit(df, featId, p=0):
+    featValCount = 0
+    for featVal in featVals:
+        if len(getInstances(df, featId, featVal)) > 0:
+            featValCount += 1
+    degreesFreedom = (len(list(df.classification.value_counts()))-1)*(featValCount-1)
+    chiSqrThreshold = stats.chi2.ppf(p, degreesFreedom)
     if getChiSquareForSplit(df, featId, chiSqrThreshold) > chiSqrThreshold:
         return True
     else:
@@ -152,9 +158,9 @@ def checkCorrectness(instance):
         totalIncorrect = totalIncorrect + 1
         return False
 
-def makeTree(trainingDataFile="training.csv", impurityFunc=giniIndex, chiSqrThreshold=0):
+def makeTree(trainingDataFile="training.csv", impurityFunc=giniIndex, p=0):
     trainingDF = pd.read_csv(trainingDataFile, header=None, names=['id','features','classification'])
-    decTree = DecisionNode(trainingDF, list(allFeatIDs), impurityFunc, chiSqrThreshold, True)
+    decTree = DecisionNode(trainingDF, list(allFeatIDs), impurityFunc, p, True)
     return trainingDF, decTree
 
 def testTreeAgainstTrainingData(trainingDF, decTree):
@@ -179,17 +185,15 @@ def main():
                         help='The name of the file containing the testing data.')
     parser.add_argument('--answers', default="answers.csv", type=str,
                         help='The name of the file where the test answers will be put.')
-    parser.add_argument('--chiSquareConfidence', default=0.90, type=float,
+    parser.add_argument('--chiSquareConfidence', default=0.0, type=float,
                         help='Some number between 0 and 1. The level of confidence for the chi-square test.')
     parser.add_argument('--impurity', default="G", type=str,
                         help="How to calculate impurity. 'G' for Gini Index. 'E' for Entropy.")
     args = parser.parse_args()
     
     impurityFunc = entropy if args.impurity == 'E' else giniIndex
-    degreesFreedom = (len(featVals) - 1) * (len(allClasses) - 1)
-    chiSqrThreshold = stats.chi2.ppf(args.chiSquareConfidence, degreesFreedom)
     
-    trainingDF,decTree = makeTree(args.training, impurityFunc, chiSqrThreshold)
+    trainingDF,decTree = makeTree(args.training, impurityFunc, args.chiSquareConfidence)
     testTreeAgainstTrainingData(trainingDF, decTree)
     genterateSubbmissionFile(decTree, args.testing, args.answers)
 
