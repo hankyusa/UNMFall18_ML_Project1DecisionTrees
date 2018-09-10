@@ -42,6 +42,39 @@ class DecisionNode:
                         self.children[featVal] = DecisionNode(childDF, childFeatIDs, impurityFunc, p)
         self.df = None
     
+    def shouldSpawn(self, childDF, p=0):
+        featValCount = 0
+        for featVal in featVals:
+            if len(getInstances(self.df, self.bestFeat, featVal)) > 0:
+                featValCount += 1
+        degreesFreedom = (len(list(self.df.classification.value_counts()))-1)*(featValCount-1)
+        chiSqrThreshold = stats.chi2.ppf(p, degreesFreedom)
+        chiVal = 0
+        # Get count of ALL of parent's instances (regardless of class).
+        numParentTotal = len(self.df)
+        for classType in allClasses:
+            # Get count of parent's instances matching classType.
+            numParentObserved = len(getInstances(self.df, classification=classType))
+            # If the parent has no observed values for classType, 
+            # then classType sould not contribute to chiVal.
+            if numParentObserved > 0:
+                # numClassTotal = total count of number of instances in candidate node
+                numClassTotal = len(childDF)
+                # If the candidate node has no values,
+                # then this candidate sould not contribute to chiVal.
+                if numClassTotal > 0:
+                    # Get the expected value for chi square.
+                    # This is the number of TOTAL elements in a candidate node * the ratio of
+                    # the number of observed parent elements for a given class to the total number
+                    # in the parent.
+                    expected = numClassTotal * numParentObserved / numParentTotal
+                    actual = len(getInstances(childDF, classification=classType))
+                    chiVal += math.pow(actual-expected, 2)/expected
+                    # exit early if we've reached the threshold.
+                    if (chiVal > chiSqrThreshold):
+                        return True
+        return False
+    
     def classify(self, dna):
         if self.bestFeat != -1 and dna[self.bestFeat] in self.children:
             return self.children[dna[self.bestFeat]].classify(dna)
