@@ -18,7 +18,7 @@ totalIncorrect = 0
 totalSubtreesStopped = 0
 
 class DecisionNode:
-    def __init__(self, inputDF, featIDs, impurityFunc, p=0, isRoot=False):
+    def __init__(self, inputDF, featIDs, impurityFunc, p=0, isRoot=False, fertile=True):
         self.isRoot = isRoot
         self.df = inputDF
         self.featIDs = featIDs
@@ -26,7 +26,7 @@ class DecisionNode:
         # self.bestClass is the most likely class given classification stops on this node.
         self.bestClass = self.df.groupby('classification').max().iloc[0].name
         self.bestFeat = -1
-        if len(list(self.df.classification.value_counts())) > 1 and len(self.featIDs) > 0:
+        if len(list(self.df.classification.value_counts()))>1 and len(self.featIDs)>0 and len(self.df)>5 and fertile:
             # The number of unique classes in this set is greater than 1, 
             # therefore impurity is not 0. Also, there are still features to split by.
             # Find the best feature to split by.
@@ -43,6 +43,7 @@ class DecisionNode:
         self.df = None
     
     def shouldSpawn(self, childDF, p=0):
+        global totalSubtreesStopped
         featValCount = 0
         for featVal in featVals:
             if len(getInstances(self.df, self.bestFeat, featVal)) > 0:
@@ -73,6 +74,7 @@ class DecisionNode:
                     # exit early if we've reached the threshold.
                     if (chiVal > chiSqrThreshold):
                         return True
+        totalSubtreesStopped += 1
         return False
     
     def classify(self, dna):
