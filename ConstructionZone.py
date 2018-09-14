@@ -230,6 +230,5 @@ def main():
     trainingDF,decTree = makeTree(args.training, impurityFunc, args.chiSquareConfidence)
     testTreeAgainstTrainingData(trainingDF, decTree)
     generateSubmissionFile(decTree, args.testing, args.answers)
-    print("Best feature counts: " + str(Counter(bestFeats)))
-    print("Total number of best features counted: " + str(len(bestFeats)))
+
 if __name__ == "__main__": main()
