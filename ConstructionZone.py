@@ -9,14 +9,14 @@ import argparse
 import pandas as pd
 import math, operator, functools
 import scipy.stats as stats
-
+from collections import Counter
 allFeatIDs = range(60)
 featVals = ['A','G','T','C','D','N','S','R']
 allClasses = ['N', 'IE', 'EI']
 
 totalIncorrect = 0
 totalSubtreesStopped = 0
-
+bestFeats = []
 class DecisionNode:
     def __init__(self, inputDF, featIDs, impurityFunc, p=0, isRoot=False, fertile=True):
         self.isRoot = isRoot
@@ -32,6 +32,7 @@ class DecisionNode:
             # Find the best feature to split by.
             gains = {featID : infoGain(self.df, featID, impurityFunc) for featID in self.featIDs}
             self.bestFeat = max(gains, key=gains.get)
+            bestFeats.append(self.bestFeat)
             if shouldSplit(self.df, self.bestFeat, p):
                 # Splitting is chi-valuable. Create children.
                 childFeatIDs = self.featIDs.copy()
@@ -172,11 +173,7 @@ def getChiSquareForSplit(df, featId, chiSqrThreshold):
 # to parent node. If chi square > critical value, reject null hypothesis that data is
 # statistically similar.
 def shouldSplit(df, featId, p=0):
-    featValCount = 0
-    for featVal in featVals:
-        if len(getInstances(df, featId, featVal)) > 5:
-            featValCount += 1
-    degreesFreedom = (len(list(df.classification.value_counts()))-1)*(featValCount-1)
+    degreesFreedom = (len(allClasses)-1)*(len(featVals)-1)
     chiSqrThreshold = stats.chi2.ppf(p, degreesFreedom)
     if getChiSquareForSplit(df, featId, chiSqrThreshold) > chiSqrThreshold:
         return True
@@ -208,7 +205,7 @@ def testTreeAgainstTrainingData(trainingDF, decTree):
     print("Tree growth stopped via chi-square " + str(totalSubtreesStopped) + " times")
     return functools.reduce(operator.and_,list(trainingDF.isCorrect))
 
-def genterateSubbmissionFile(decTree, testingDataFile="testing.csv", answersDataFile="answers.csv"):
+def generateSubmissionFile(decTree, testingDataFile="testing.csv", answersDataFile="answers.csv"):
     testingDF = pd.read_csv(testingDataFile, header=None, names=['id','features'])
     testingDF['classification'] = testingDF.features.apply(decTree.classify)
     testingDF.to_csv(answersDataFile,encoding='utf-8',columns=['id','classification'],header=['id','class'],index=False)
@@ -232,6 +229,7 @@ def main():
     
     trainingDF,decTree = makeTree(args.training, impurityFunc, args.chiSquareConfidence)
     testTreeAgainstTrainingData(trainingDF, decTree)
-    genterateSubbmissionFile(decTree, args.testing, args.answers)
-
+    generateSubmissionFile(decTree, args.testing, args.answers)
+    print("Best feature counts: " + str(Counter(bestFeats)))
+    print("Total number of best features counted: " + str(len(bestFeats)))
 if __name__ == "__main__": main()
