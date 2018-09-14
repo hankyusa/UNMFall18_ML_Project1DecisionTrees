@@ -214,15 +214,15 @@ def main():
     global impurityType
     parser = argparse.ArgumentParser(description='Build a decision tree and test it.')
     parser.add_argument('--training', default="training.csv", type=str,
-                        help='The name of the file containing the training data.')
+                        help='The name of the file containing the training data. Default: training.csv')
     parser.add_argument('--testing', default="testing.csv", type=str,
-                        help='The name of the file containing the testing data.')
+                        help='The name of the file containing the testing data. Default: testing.csv')
     parser.add_argument('--answers', default="answers.csv", type=str,
-                        help='The name of the file where the test answers will be put.')
+                        help='The name of the file where the test answers will be put. Default: answers.csv')
     parser.add_argument('--chiSquareConfidence', default=0.0, type=float,
-                        help='Some number between 0 and 1. The level of confidence for the chi-square test.')
+                        help='Some number between 0 and 1. The level of confidence for the chi-square test. Default: 0.0')
     parser.add_argument('--impurity', default="G", type=str,
-                        help="How to calculate impurity. 'G' for Gini Index. 'E' for Entropy.")
+                        help="How to calculate impurity. 'G' for Gini Index. 'E' for Entropy. Default: G")
     args = parser.parse_args()
     
     impurityFunc = entropy if args.impurity == 'E' else giniIndex
