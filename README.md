@@ -5,10 +5,10 @@
 Make sure ConstructionZone.py, training.csv and testing.csv are all in the working directory.
 
 ```
-usage: ConstructionZone.py [-h] [--training TRAINING] [--testing TESTING]
-                           [--answers ANSWERS]
-                           [--chiSquareConfidence CHISQUARECONFIDENCE]
-                           [--impurity IMPURITY]
+usage: LaPay_Hanks_ID3.py [-h] [--training TRAINING] [--testing TESTING]
+                          [--answers ANSWERS]
+                          [--chiSquareConfidence CHISQUARECONFIDENCE]
+                          [--impurity IMPURITY]
 
 Build a decision tree and test it.
 
