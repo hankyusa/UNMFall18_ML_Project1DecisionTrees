@@ -49,6 +49,10 @@ optional arguments:
 
 Note: Unambiguous abreviations work.
 
+### Mermaid Diagrams
+
+The `__str__` method in the DecisionNode class generates [Mermaid diagram](https://mermaidjs.github.io/) code. In the diagrams each node has a classification it would give if the search stopped there. The class is followed by the feature that the node decided to split by. The edges are marked by the feature value of the parent node's splitting feature that produced the child node. If a leaf node has a feature, then that node was prevented from splitting based on the chi squared method. If a leaf node has no feature, then it is a true dead end where impurity reached 0.
+
 ## Team
 
 Kaggle team name: Hanks, La Pay
